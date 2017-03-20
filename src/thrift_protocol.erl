@@ -473,13 +473,14 @@ write_frag(Proto = #protocol{module = Module,
     {NewData, Result} = Module:write(ModuleData, Data),
     {Proto#protocol{data = NewData}, Result}.
 
-struct_write_loop(Proto0, [{Fid, _Req, Type, _Name, _Default} | RestStructDef], [Data | RestData]) ->
+struct_write_loop(Proto0, [{Fid, _Req, Type, Name, _Default} | RestStructDef], [Data | RestData]) ->
     NewProto = case Data of
                    undefined ->
                        Proto0; % null fields are skipped in response
                    _ ->
                        {Proto1, ok} = write_frag(Proto0,
                                            #protocol_field_begin{
+                                             name = Name,
                                              type = term_to_typeid(Type),
                                              id = Fid
                                             }),
