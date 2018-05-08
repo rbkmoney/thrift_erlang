@@ -24,7 +24,7 @@
          read/2,
          read/3,
          skip/2,
-         validate/2,
+         validate/1,
          flush_transport/1,
          close_transport/1,
          typeid_to_atom/1
@@ -100,9 +100,7 @@ read(IProto0, {struct, union, StructDef}, _Tag)
     {IProto2, RTuple} = read_union_loop(IProto1, enumerate(1, StructDef)),
     case RTuple of
       [{_, _} = Data] -> {IProto2, {ok, Data}};
-      %% As long as it's ok to skip wrongly typed fields it should be ok to accept unset union
-      %% value in situations where schema permits _optional_ input.
-      [] ->              {IProto2, {ok, undefined}};
+      [] ->              {IProto2, {ok, empty}};
       [_ | _] ->         {IProto2, {ok, {multiple, RTuple}}}
     end;
 read(IProto0, {struct, _, StructDef}, Tag)
@@ -145,7 +143,7 @@ enumerate(_, []) ->
 read(IProto, Type) ->
     case Result = read_frag(IProto, Type) of
         {IProto2, {ok, Data}} ->
-            case validate({Type, Data}, input) of
+            case validate({Type, Data}) of
                 ok -> Result;
                 Error -> {IProto2, Error}
             end;
@@ -378,7 +376,7 @@ skip_list_loop(Proto0, Map = #protocol_list_begin{etype = Etype, size = Size}) -
 -spec write(#protocol{}, any()) -> {#protocol{}, ok | {error, _Reason}}.
 
 write(Proto, TypeData) ->
-    case validate(TypeData, output) of
+    case validate(TypeData) of
         ok -> write_frag(Proto, TypeData);
         Error -> {Proto, Error}
     end.
@@ -494,116 +492,102 @@ struct_write_loop(Proto0, [{Fid, _Req, Type, Name, _Default} | RestStructDef], [
 struct_write_loop(Proto, [], []) ->
     write_frag(Proto, field_stop).
 
--spec validate(
-    tprot_header_val() | tprot_header_tag() | tprot_empty_tag() | field_stop | TypeData,
-    Direction :: input | output
-) ->
+-spec validate(tprot_header_val() | tprot_header_tag() | tprot_empty_tag() | field_stop | TypeData) ->
     ok | {error, {invalid, Location :: [atom()], Value :: term()}} when
         TypeData :: {Type, Data},
         Type :: tprot_data_tag() | tprot_cont_tag() | {enum, _Def} | {struct, _Flavour, _Def},
         Data :: term().
 
-validate(#protocol_message_begin{}, _Direction) -> ok;
-validate(#protocol_struct_begin{}, _Direction) -> ok;
-validate(#protocol_field_begin{}, _Direction) -> ok;
-validate(#protocol_map_begin{}, _Direction) -> ok;
-validate(#protocol_list_begin{}, _Direction) -> ok;
-validate(#protocol_set_begin{}, _Direction) -> ok;
-validate(message_end, _Direction) -> ok;
-validate(field_stop, _Direction) -> ok;
-validate(field_end, _Direction) -> ok;
-validate(struct_end, _Direction) -> ok;
-validate(list_end, _Direction) -> ok;
-validate(set_end, _Direction) -> ok;
-validate(map_end, _Direction) -> ok;
+validate(#protocol_message_begin{}) -> ok;
+validate(#protocol_struct_begin{}) -> ok;
+validate(#protocol_field_begin{}) -> ok;
+validate(#protocol_map_begin{}) -> ok;
+validate(#protocol_list_begin{}) -> ok;
+validate(#protocol_set_begin{}) -> ok;
+validate(message_end) -> ok;
+validate(field_stop) -> ok;
+validate(field_end) -> ok;
+validate(struct_end) -> ok;
+validate(list_end) -> ok;
+validate(set_end) -> ok;
+validate(map_end) -> ok;
 
-validate(TypeData, Direction) ->
-    try validate(TypeData, Direction, []) catch
+validate(TypeData) ->
+    try validate(TypeData, []) catch
         throw:{invalid, Path, _Type, Value} ->
             {error, {invalid, lists:reverse(Path), Value}}
     end.
 
-validate(TypeData, Direction, Path) ->
-    validate(required, TypeData, Direction, Path).
+validate(TypeData, Path) ->
+    validate(required, TypeData, Path).
 
-validate(optional, {_Type, undefined}, _Direction, _Path) ->
+validate(Req, {_Type, undefined}, _Path)
+  when Req =:= optional orelse Req =:= undefined ->
     ok;
-validate({optional, _}, {_Type, undefined}, input, _Path) ->
-    ok;
-validate({_, optional}, {_Type, undefined}, output, _Path) ->
-    ok;
-validate(_Req, {{list, Type}, Data}, Direction, Path)
+validate(_Req, {{list, Type}, Data}, Path)
   when is_list(Data) ->
-    lists:foreach(fun (E) -> validate({Type, E}, Direction, Path) end, Data);
-validate(_Req, {{set, Type}, Data}, Direction, Path)
+    lists:foreach(fun (E) -> validate({Type, E}, Path) end, Data);
+validate(_Req, {{set, Type}, Data}, Path)
   when is_list(Data) ->
-    lists:foreach(fun (E) -> validate({Type, E}, Direction, Path) end, ordsets:to_list(Data));
-validate(_Req, {{map, KType, VType}, Data}, Direction, Path)
+    lists:foreach(fun (E) -> validate({Type, E}, Path) end, (ordsets:to_list(Data)));
+validate(_Req, {{map, KType, VType}, Data}, Path)
   when is_map(Data) ->
-    maps:fold(
-      fun (K, V, _) ->
-        validate({KType, K}, Direction, Path),
-        validate({VType, V}, Direction, Path),
-        ok
-      end,
-      ok,
-      Data
-    );
-validate(Req, {{struct, union, {Mod, Name}}, Data = {_, _}}, Direction, Path) ->
-    validate(Req, {Mod:struct_info(Name), Data}, Direction, Path);
-validate(_Req, {{struct, union, StructDef} = Type, Data = {Name, Value}}, Direction, Path)
+    maps:fold(fun (K, V, _) -> validate({KType, K}, Path), validate({VType, V}, Path), ok end, ok, Data);
+validate(Req, {{struct, union, {Mod, Name}}, Data = {_, _}}, Path) ->
+    validate(Req, {Mod:struct_info(Name), Data}, Path);
+validate(_Req, {{struct, union, StructDef} = Type, Data = {Name, Value}}, Path)
   when is_list(StructDef) andalso is_atom(Name) ->
     case lists:keyfind(Name, 4, StructDef) of
         {_, _, SubType, Name, _Default} ->
-            validate(required, {SubType, Value}, Direction, [Name | Path]);
+            validate(required, {SubType, Value}, [Name | Path]);
         false ->
             throw({invalid, Path, Type, Data})
     end;
-validate(Req, {{struct, Flavour, {Mod, Name} = Type}, Data}, Direction, Path)
-  when Flavour /= union andalso is_tuple(Data) ->
+validate(Req, {{struct, _Flavour, {Mod, Name} = Type}, Data}, Path)
+  when is_tuple(Data) ->
     case Mod:record_name(Name) of
       RName when RName =:= element(1, Data) ->
-        validate(Req, {Mod:struct_info(Name), Data}, Direction, Path);
+        validate(Req, {Mod:struct_info(Name), Data}, Path);
       _ ->
         throw({invalid, Path, Type, Data})
     end;
-validate(_Req, {{struct, Flavour, StructDef}, Data}, Direction, Path)
-  when Flavour /= union andalso is_list(StructDef) andalso tuple_size(Data) =:= length(StructDef) + 1 ->
+validate(_Req, {{struct, _Flavour, StructDef}, Data}, Path)
+  when is_list(StructDef) andalso tuple_size(Data) =:= length(StructDef) + 1 ->
     [_ | Elems] = tuple_to_list(Data),
-    validate_struct_fields(StructDef, Elems, Direction, Path);
-validate(_Req, {{struct, Flavour, StructDef}, Data}, Direction, Path)
-  when Flavour /= union andalso is_list(StructDef) andalso tuple_size(Data) =:= length(StructDef) ->
-    validate_struct_fields(StructDef, tuple_to_list(Data), Direction, Path);
-validate(_Req, {{enum, _Fields}, Value}, _Direction, _Path) when is_atom(Value), Value =/= undefined ->
+    validate_struct_fields(StructDef, Elems, Path);
+validate(_Req, {{struct, _Flavour, StructDef}, Data}, Path)
+  when is_list(StructDef) andalso tuple_size(Data) =:= length(StructDef) ->
+    validate_struct_fields(StructDef, tuple_to_list(Data), Path);
+validate(_Req, {{enum, _Fields}, Value}, _Path) when is_atom(Value), Value =/= undefined ->
     ok;
-validate(_Req, {string, Value}, _Direction, _Path) when is_binary(Value) ->
+validate(_Req, {string, Value}, _Path) when is_binary(Value) ->
     ok;
-validate(_Req, {bool, Value}, _Direction, _Path) when is_boolean(Value) ->
+validate(_Req, {bool, Value}, _Path) when is_boolean(Value) ->
     ok;
-validate(_Req, {byte, Value}, _Direction, _Path)
+validate(_Req, {byte, Value}, _Path)
   when is_integer(Value), Value >= -(1 bsl 7), Value < (1 bsl 7) ->
     ok;
-validate(_Req, {i8,  Value}, _Direction, _Path)
+validate(_Req, {i8,  Value}, _Path)
   when is_integer(Value), Value >= -(1 bsl 7), Value < (1 bsl 7) ->
     ok;
-validate(_Req, {i16, Value}, _Direction, _Path)
+validate(_Req, {i16, Value}, _Path)
   when is_integer(Value), Value >= -(1 bsl 15), Value < (1 bsl 15) ->
     ok;
-validate(_Req, {i32, Value}, _Direction, _Path)
+validate(_Req, {i32, Value}, _Path)
   when is_integer(Value), Value >= -(1 bsl 31), Value < (1 bsl 31) ->
     ok;
-validate(_Req, {i64, Value}, _Direction, _Path)
+validate(_Req, {i64, Value}, _Path)
   when is_integer(Value), Value >= -(1 bsl 63), Value < (1 bsl 63) ->
     ok;
-validate(_Req, {double, Value}, _Direction, _Path) when is_float(Value) ->
+validate(_Req, {double, Value}, _Path) when is_float(Value) ->
     ok;
-validate(_Req, {Type, Value}, _Direction, Path) ->
+validate(_Req, {Type, Value}, Path) ->
     throw({invalid, Path, Type, Value}).
 
-validate_struct_fields(Types, Elems, Direction, Path) ->
+validate_struct_fields(Types, Elems, Path) ->
     lists:foreach(
         fun ({{_, Req, Type, Name, _}, Data}) ->
-            validate(Req, {Type, Data}, Direction, [Name | Path])
+            validate(Req, {Type, Data}, [Name | Path])
         end,
         lists:zip(Types, Elems)
     ).
