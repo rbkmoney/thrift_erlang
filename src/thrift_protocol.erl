@@ -397,6 +397,10 @@ write_frag(Proto0, {{struct, _, StructDef}, Data}, StructName)
     {Proto3, ok}.
 
 %% thrift client specific stuff
+write_frag(Proto0, {{struct, union, StructDef}, {_Name, _Value}} = TypeData)
+  when is_list(StructDef) ->
+    write_frag(Proto0, TypeData, undefined);
+
 write_frag(Proto0, {{struct, _, StructDef}, Data})
   when is_list(StructDef), is_tuple(Data), length(StructDef) == size(Data) - 1 ->
     [StructName | Elems] = tuple_to_list(Data),
