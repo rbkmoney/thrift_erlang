@@ -41,10 +41,15 @@
 
 % TApplicationException
 -define(TApplicationException_Structure,
-        {struct, exception, [{1, undefined, string, undefined, undefined},
-                  {2, undefined, i32, undefined, undefined}]}).
+    {struct, exception, [
+        {1, undefined, string, undefined, undefined},
+        {2, undefined, i32, undefined, undefined}
+    ]}
+).
 
--record('TApplicationException', {message, type}).
+-record('TApplicationException', {
+    message :: binary(),
+    type :: non_neg_integer()}).
 
 -define(TApplicationException_UNKNOWN, 0).
 -define(TApplicationException_UNKNOWN_METHOD, 1).
