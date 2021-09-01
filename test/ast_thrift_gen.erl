@@ -135,19 +135,23 @@ t_term() ->
 
 -spec t_term(_Size :: non_neg_integer()) -> typ().
 t_term(S) ->
-    ?LAZY(oneof([
-        {atom, t_atomstr()},
-        {int, t_i64()},
-        {int, integer()},
-        {flt, float()},
-        {bin, binary()},
-        {lst, resize(S, list(t_term(half_size(S))))},
-        {mp, t_map(S)}
-    ])).
+    ?LAZY(
+        oneof([
+            {atom, t_atomstr()},
+            {int, t_i64()},
+            {int, integer()},
+            {flt, float()},
+            {bin, binary()},
+            {lst, resize(S, list(t_term(half_size(S))))},
+            {mp, t_map(S)}
+        ])
+    ).
 
 -spec t_map(_Size :: non_neg_integer()) -> typ().
 t_map(S) ->
-    ?LET(L, resize(S, list({t_term(half_size(S)), t_term(half_size(S))})),
+    ?LET(
+        L,
+        resize(S, list({t_term(half_size(S)), t_term(half_size(S))})),
         maps:from_list(L)
     ).
 

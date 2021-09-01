@@ -14,20 +14,26 @@
 -type field_req() :: required | optional | undefined.
 -type field_name() :: atom().
 -type field_type() ::
-        bool | byte | i16 | i32 | i64 | string | double |
-        {enum, type_ref()} |
-        {struct, struct_flavour(), type_ref()} |
-        {list, field_type()} |
-        {set, field_type()} |
-        {map, field_type(), field_type()}.
+    bool
+    | byte
+    | i16
+    | i32
+    | i64
+    | string
+    | double
+    | {enum, type_ref()}
+    | {struct, struct_flavour(), type_ref()}
+    | {list, field_type()}
+    | {set, field_type()}
+    | {map, field_type(), field_type()}.
 
 -type struct_field_info() ::
-        {field_num(), field_req(), field_type(), field_name(), any()}.
+    {field_num(), field_req(), field_type(), field_name(), any()}.
 -type struct_info() ::
-        {struct, struct_flavour(), [struct_field_info()]}.
+    {struct, struct_flavour(), [struct_field_info()]}.
 
 -type type_path() ::
-        [{variant, atom()} | {field, atom()}].
+    [{variant, atom()} | {field, atom()}].
 
 -type enum_value() :: atom().
 %% -type enum_info() :: {enum, [{enum_value(), integer()}]}.
@@ -38,9 +44,9 @@
 
 -spec encode_enum(namespace(), type(), binary()) -> {ok, enum_value()} | {error, unknown_atom | unknown_variant}.
 encode_enum(Module, Type, Binary) when is_binary(Binary) ->
+    {enum, Variants} = Module:enum_info(Type),
     try erlang:binary_to_existing_atom(Binary, utf8) of
         Atom ->
-            {enum, Variants} = Module:enum_info(Type),
             case lists:keyfind(Atom, 1, Variants) of
                 false -> {error, unknown_variant};
                 _ -> {ok, Atom}
