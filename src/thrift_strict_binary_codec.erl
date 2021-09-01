@@ -36,18 +36,19 @@
 
 -compile(inline).
 
--export([new/0,
-         new/1,
-         write/3,
-         write_message_begin/4,
-         write_message_end/1,
-         read/2,
-         read_message_begin/1,
-         read_message_end/1,
-         skip/2,
-         validate/1,
-         close/1
-        ]).
+-export([
+    new/0,
+    new/1,
+    write/3,
+    write_message_begin/4,
+    write_message_end/1,
+    read/2,
+    read_message_begin/1,
+    read_message_end/1,
+    skip/2,
+    validate/1,
+    close/1
+]).
 
 -include("thrift_constants.hrl").
 -include("thrift_protocol.hrl").
@@ -111,16 +112,16 @@ read_message_end(IProto) ->
     {ok, ok, IProto}.
 
 -spec read
-        (buffer(), {struct, _Flavour, _Info}) ->
-            {ok, tuple(), buffer()} | {error, _Reason};
-        (buffer(), tprot_cont_tag()) ->
-            {ok, any(), buffer()} | {error, _Reason};
-        (buffer(), tprot_empty_tag()) ->
-            {ok, ok, buffer()} | {error, _Reason};
-        (buffer(), tprot_header_tag()) ->
-            {ok, tprot_header_val(), buffer()} | {error, _Reason};
-        (buffer(), tprot_data_tag()) ->
-            {ok, any(), buffer()} | {error, _Reason}.
+    (buffer(), {struct, _Flavour, _Info}) ->
+        {ok, tuple(), buffer()} | {error, _Reason};
+    (buffer(), tprot_cont_tag()) ->
+        {ok, any(), buffer()} | {error, _Reason};
+    (buffer(), tprot_empty_tag()) ->
+        {ok, ok, buffer()} | {error, _Reason};
+    (buffer(), tprot_header_tag()) ->
+        {ok, tprot_header_val(), buffer()} | {error, _Reason};
+    (buffer(), tprot_data_tag()) ->
+        {ok, any(), buffer()} | {error, _Reason}.
 
 read(IProto, Type) ->
     try read_frag(IProto, Type, []) of
@@ -135,10 +136,10 @@ read_union(IProto0, StructDef, Path) ->
     % {IProto1, ok} = read_frag(IProto0, struct_begin),
     {IProto1, Result} = read_union_loop(IProto0, StructDef, undefined, Path),
     case Result of
-      {_, _} ->
-          {IProto1, Result};
-      _ ->
-          throw({invalid, Path, Result})
+        {_, _} ->
+            {IProto1, Result};
+        _ ->
+            throw({invalid, Path, Result})
     end.
 
 read_struct(IProto0, StructDef, undefined, Path) ->
@@ -159,26 +160,26 @@ fill_default_struct(N, [FieldDef | Rest], Acc) when element(5, FieldDef) =:= und
 fill_default_struct(N, [FieldDef | Rest], Acc) ->
     fill_default_struct(N + 1, Rest, [{N, element(5, FieldDef)} | Acc]).
 
--define(read_byte(V), V:8/integer-signed-big).
--define(read_i16(V), V:16/integer-signed-big).
--define(read_i32(V), V:32/integer-signed-big).
--define(read_i64(V), V:64/integer-signed-big).
--define(read_double(V), V:64/float-signed-big).
+-define(read_byte(V), V:8 / integer - signed - big).
+-define(read_i16(V), V:16 / integer - signed - big).
+-define(read_i32(V), V:32 / integer - signed - big).
+-define(read_i64(V), V:64 / integer - signed - big).
+-define(read_double(V), V:64 / float - signed - big).
 
 -define(read_list(Etype, Size), ?read_byte(Etype), ?read_i32(Size)).
 -define(read_set(Etype, Size), ?read_byte(Etype), ?read_i32(Size)).
 -define(read_map(Ktype, Vtype, Size), ?read_byte(Ktype), ?read_byte(Vtype), ?read_i32(Size)).
 
 read_frag(IProto, {struct, union, {Module, StructName}}, Path) when
-  is_atom(Module), is_atom(StructName) ->
+    is_atom(Module), is_atom(StructName)
+->
     read_union(IProto, element(3, Module:struct_info(StructName)), Path);
 read_frag(IProto, {struct, _, {Module, StructName}}, Path) when
-  is_atom(Module), is_atom(StructName) ->
+    is_atom(Module), is_atom(StructName)
+->
     read_struct(IProto, element(3, Module:struct_info(StructName)), Module:record_name(StructName), Path);
-
 read_frag(IProto, {enum, {Module, EnumName}}, Path) when is_atom(Module) ->
     read_enum(IProto, element(2, Module:enum_info(EnumName)), Path);
-
 read_frag(
     <<?read_list(EType, Size), IProto1/binary>> = IProto,
     {list, Type} = SType,
@@ -187,11 +188,10 @@ read_frag(
     case term_to_typeid(Type) of
         EType ->
             read_list_loop(IProto1, Type, Size, Path);
-            % IProto3 = read_frag(IProto2, list_end),
+        % IProto3 = read_frag(IProto2, list_end),
         _ ->
             throw({unexpected, Path, SType, IProto})
     end;
-
 read_frag(
     <<?read_map(KType, VType, Size), IProto1/binary>> = IProto,
     {map, KeyType, ValType} = SType,
@@ -200,11 +200,10 @@ read_frag(
     case KType =:= term_to_typeid(KeyType) andalso VType =:= term_to_typeid(ValType) of
         true ->
             read_map_loop(IProto1, KeyType, ValType, Size, Path);
-            % IProto3 = read_frag(IProto2, map_end),
+        % IProto3 = read_frag(IProto2, map_end),
         _ ->
             throw({unexpected, Path, SType, IProto})
     end;
-
 read_frag(
     <<?read_set(EType, Size), IProto1/binary>> = IProto,
     {set, Type} = SType,
@@ -213,11 +212,10 @@ read_frag(
     case term_to_typeid(Type) of
         EType ->
             read_set_loop(IProto1, Type, Size, Path);
-            % IProto3 = read_frag(IProto2, set_end),
+        % IProto3 = read_frag(IProto2, set_end),
         _ ->
             throw({unexpected, Path, SType, IProto})
     end;
-
 read_frag(<<?read_byte(Byte), Proto/binary>>, bool, _) ->
     {Proto, Byte /= 0};
 read_frag(<<?read_byte(Val), Proto/binary>>, byte, _) ->
@@ -232,13 +230,11 @@ read_frag(<<?read_double(Val), Proto/binary>>, double, _) ->
     {Proto, Val};
 read_frag(<<?read_i32(Sz), Proto/binary>>, string, _) ->
     read_data(Proto, Sz);
-
 read_frag(IProto, {struct, union, StructDef}, Path) when is_list(StructDef) ->
     % reading w/o validation here for easier handling of replies in the client codec
     read_union_loop(IProto, StructDef, undefined, Path);
 read_frag(IProto, {struct, _, StructDef}, Path) when is_list(StructDef) ->
     read_struct(IProto, StructDef, undefined, Path);
-
 read_frag(Proto, Type, Path) ->
     throw({unexpected, Path, Type, Proto}).
 
@@ -293,7 +289,6 @@ read_union_loop(<<?read_byte(FType), ?read_i16(Fid), IProto1/binary>>, StructDef
     end;
 read_union_loop(Proto, StructDef, _Acc, Path) ->
     throw({unexpected, Path, StructDef, Proto}).
-
 
 set_union_val(Name, Val, undefined) ->
     {Name, Val};
@@ -367,29 +362,23 @@ skip(Proto0, struct) ->
     Proto1 = skip_struct_loop(Proto0),
     % Proto3 = read_frag(Proto2, struct_end),
     Proto1;
-
 skip(<<?read_map(KType, VType, Size), Proto1/binary>>, map) ->
     Proto2 = skip_map_loop(Proto1, KType, VType, Size),
     % Proto3 = read_frag(Proto2, map_end),
     Proto2;
-
 skip(<<?read_set(EType, Size), Proto1/binary>>, set) ->
     Proto2 = skip_list_loop(Proto1, EType, Size),
     % Proto3 = read_frag(Proto2, set_end),
     Proto2;
-
 skip(<<?read_list(EType, Size), Proto1/binary>>, list) ->
     Proto2 = skip_list_loop(Proto1, EType, Size),
     % Proto3 = read_frag(Proto2, list_end),
     Proto2;
-
 skip(Proto0, Type) when is_atom(Type) ->
     {Proto1, _Ignore} = read_frag(Proto0, Type, []),
     Proto1;
-
 skip(Proto0, Type) when is_integer(Type) ->
     skip(Proto0, typeid_to_atom(Type));
-
 skip(Proto, Type) ->
     throw({unexpected, Proto, Type, []}).
 
@@ -416,10 +405,12 @@ skip_list_loop(Proto0, Etype, Size) ->
 
 %%
 
--spec write_message_begin(buffer(),
-                            _Name :: binary(),
-                            _Type :: integer(),
-                            _SeqId :: integer()) -> buffer().
+-spec write_message_begin(
+    buffer(),
+    _Name :: binary(),
+    _Type :: integer(),
+    _SeqId :: integer()
+) -> buffer().
 
 write_message_begin(Proto, Name, Type, SeqId) ->
     impl_write_message_begin(Proto, Name, Type, SeqId).
@@ -462,20 +453,18 @@ write_struct(Proto0, StructDef, Data, Path) ->
 %% thrift client specific stuff
 write_frag(Proto, {struct, union, {Module, StructName}}, Data, Path) ->
     write_union(Proto, element(3, Module:struct_info(StructName)), Data, Path);
-
 write_frag(Proto, {struct, _, {Module, StructName}} = Type, Data, Path) ->
     try Module:record_name(StructName) of
-      RName when RName =:= element(1, Data) ->
-        write_struct(Proto, element(3, Module:struct_info(StructName)), Data, Path);
-      _ ->
-        throw({invalid, Path, Type, Data})
-    catch error:badarg ->
-        throw({invalid, Path, Type, Data})
+        RName when RName =:= element(1, Data) ->
+            write_struct(Proto, element(3, Module:struct_info(StructName)), Data, Path);
+        _ ->
+            throw({invalid, Path, Type, Data})
+    catch
+        error:badarg ->
+            throw({invalid, Path, Type, Data})
     end;
-
 write_frag(Proto, {enum, {Module, EnumName}}, Data, Path) ->
     write_frag(Proto, Module:enum_info(EnumName), Data, Path);
-
 write_frag(Proto, {enum, Fields} = Type, Data, Path) ->
     case lists:keyfind(Data, 1, Fields) of
         {Data, IVal} ->
@@ -483,95 +472,106 @@ write_frag(Proto, {enum, Fields} = Type, Data, Path) ->
         _ ->
             throw({invalid, Path, Type, Data})
     end;
-
-write_frag(Proto0, {list, Type}, Data, Path)
-  when is_list(Data) ->
+write_frag(Proto0, {list, Type}, Data, Path) when
+    is_list(Data)
+->
     Proto1 = impl_write_list_begin(Proto0, term_to_typeid(Type), length(Data)),
-    Proto2 = lists:foldl(fun(Elem, ProtoIn) ->
-                            write_frag(ProtoIn, Type, Elem, Path)
-                         end,
-                         Proto1,
-                         Data),
+    Proto2 = lists:foldl(
+        fun(Elem, ProtoIn) ->
+            write_frag(ProtoIn, Type, Elem, Path)
+        end,
+        Proto1,
+        Data
+    ),
     % Proto3 = impl_write_list_end(Proto2),
     Proto2;
-
-write_frag(Proto0, {map, KeyType, ValType}, Data, Path)
-  when is_map(Data) ->
+write_frag(Proto0, {map, KeyType, ValType}, Data, Path) when
+    is_map(Data)
+->
     Proto1 = impl_write_map_begin(Proto0, term_to_typeid(KeyType), term_to_typeid(ValType), map_size(Data)),
-    Proto2 = maps:fold(fun(KeyData, ValData, ProtoS0) ->
-                               ProtoS1 = write_frag(ProtoS0, KeyType, KeyData, Path),
-                               ProtoS2 = write_frag(ProtoS1, ValType, ValData, Path),
-                               ProtoS2
-                       end,
-                       Proto1,
-                       Data),
+    Proto2 = maps:fold(
+        fun(KeyData, ValData, ProtoS0) ->
+            ProtoS1 = write_frag(ProtoS0, KeyType, KeyData, Path),
+            ProtoS2 = write_frag(ProtoS1, ValType, ValData, Path),
+            ProtoS2
+        end,
+        Proto1,
+        Data
+    ),
     % Proto3 = impl_write_map_end(Proto2),
     Proto2;
-
-write_frag(Proto0, {set, Type}, Data, Path)
-  when is_list(Data) ->
+write_frag(Proto0, {set, Type}, Data, Path) when
+    is_list(Data)
+->
     case set_size(Data) of
         Size when is_integer(Size) ->
             Proto1 = impl_write_set_begin(Proto0, term_to_typeid(Type), Size),
-            Proto2 = ordsets:fold(fun(Elem, ProtoIn) ->
-                                    write_frag(ProtoIn, Type, Elem, Path)
-                            end,
-                            Proto1,
-                            Data),
+            Proto2 = ordsets:fold(
+                fun(Elem, ProtoIn) ->
+                    write_frag(ProtoIn, Type, Elem, Path)
+                end,
+                Proto1,
+                Data
+            ),
             % Proto3 = impl_write_set_end(Proto2),
             Proto2;
         false ->
             throw({invalid, Path, Type, Data})
     end;
-
-write_frag(Proto0, string, Data, _)
-  when is_binary(Data) ->
+write_frag(Proto0, string, Data, _) when
+    is_binary(Data)
+->
     impl_write_string(Proto0, Data);
-write_frag(Proto0, i64, Data, _)
-  when is_integer(Data), Data >= -(1 bsl 63), Data < (1 bsl 63) ->
+write_frag(Proto0, i64, Data, _) when
+    is_integer(Data), Data >= -(1 bsl 63), Data < (1 bsl 63)
+->
     impl_write_i64(Proto0, Data);
-write_frag(Proto0, i32, Data, _)
-  when is_integer(Data), Data >= -(1 bsl 31), Data < (1 bsl 31) ->
+write_frag(Proto0, i32, Data, _) when
+    is_integer(Data), Data >= -(1 bsl 31), Data < (1 bsl 31)
+->
     impl_write_i32(Proto0, Data);
-write_frag(Proto0, i16, Data, _)
-  when is_integer(Data), Data >= -(1 bsl 15), Data < (1 bsl 15) ->
+write_frag(Proto0, i16, Data, _) when
+    is_integer(Data), Data >= -(1 bsl 15), Data < (1 bsl 15)
+->
     impl_write_i16(Proto0, Data);
-write_frag(Proto0, byte, Data, _)
-  when is_integer(Data), Data >= -(1 bsl 7), Data < (1 bsl 7) ->
+write_frag(Proto0, byte, Data, _) when
+    is_integer(Data), Data >= -(1 bsl 7), Data < (1 bsl 7)
+->
     impl_write_byte(Proto0, Data);
-write_frag(Proto0, double, Data, _)
-  when is_float(Data) ->
+write_frag(Proto0, double, Data, _) when
+    is_float(Data)
+->
     impl_write_double(Proto0, Data);
-write_frag(Proto0, bool, Data, _)
-  when is_boolean(Data) ->
+write_frag(Proto0, bool, Data, _) when
+    is_boolean(Data)
+->
     impl_write_bool(Proto0, Data);
-
 write_frag(Proto0, {struct, union, StructDef}, Data, Path) ->
     write_union(Proto0, StructDef, Data, Path);
-
 write_frag(Proto0, {struct, _, StructDef}, Data, Path) ->
     % Proto1 = impl_write_struct_begin(Proto0, element(1, Data)),
     Offset = tuple_size(Data) - length(StructDef),
     Proto1 = struct_write_loop(Proto0, StructDef, Data, Offset + 1, Path),
     % Proto3 = impl_write_struct_end(Proto2),
     Proto1;
-
 write_frag(_Proto, Type, Data, Path) ->
     throw({invalid, Path, Type, Data}).
 
 struct_write_loop(Proto0, [{Fid, Req, Type, Name, _Default} | RestStructDef], Struct, Idx, Path) ->
     Data = element(Idx, Struct),
-    NewProto = case Data of
-                   undefined when Req =:= required ->
-                       throw({invalid, [Name | Path], Type, Data});
-                   undefined ->
-                       Proto0; % null fields are skipped in response
-                   _ ->
-                       Proto1 = impl_write_field_begin(Proto0, Name, term_to_typeid(Type), Fid),
-                       Proto2 = write_frag(Proto1, Type, Data, [Name | Path]),
-                       % Proto3 = impl_write_field_end(Proto2),
-                       Proto2
-               end,
+    NewProto =
+        case Data of
+            undefined when Req =:= required ->
+                throw({invalid, [Name | Path], Type, Data});
+            undefined ->
+                % null fields are skipped in response
+                Proto0;
+            _ ->
+                Proto1 = impl_write_field_begin(Proto0, Name, term_to_typeid(Type), Fid),
+                Proto2 = write_frag(Proto1, Type, Data, [Name | Path]),
+                % Proto3 = impl_write_field_end(Proto2),
+                Proto2
+        end,
     struct_write_loop(NewProto, RestStructDef, Struct, Idx + 1, Path);
 struct_write_loop(Proto, [], _, _, _) ->
     impl_write_field_stop(Proto).
@@ -580,82 +580,110 @@ struct_write_loop(Proto, [], _, _, _) ->
     non_neg_integer() | false.
 %% Returns ordset cardinality unless ordset is malformed, otherwise returns `false`.
 %% We knowingly abuse the inner structure of the `ordset()` type here.
-set_size([E|Es]) -> set_size(Es, E, 1);
+set_size([E | Es]) -> set_size(Es, E, 1);
 set_size([]) -> 0;
 set_size(_) -> false.
 
-set_size([E2|Es], E1, S) when E1 < E2 -> set_size(Es, E2, S + 1);
-set_size([_|_], _, _) -> false;
+set_size([E2 | Es], E1, S) when E1 < E2 -> set_size(Es, E2, S + 1);
+set_size([_ | _], _, _) -> false;
 set_size([], _, S) -> S.
 
 -spec validate(tprot_header_val() | tprot_header_tag() | tprot_empty_tag() | field_stop | TypeData) ->
-    ok | {error, {invalid, Location :: [atom()], Value :: term()}} when
-        TypeData :: {Type, Data},
-        Type :: tprot_data_tag() | tprot_cont_tag() | {enum, _Def} | {struct, _Flavour, _Def},
-        Data :: term().
+    ok | {error, {invalid, Location :: [atom()], Value :: term()}}
+when
+    TypeData :: {Type, Data},
+    Type :: tprot_data_tag() | tprot_cont_tag() | {enum, _Def} | {struct, _Flavour, _Def},
+    Data :: term().
 
-validate(#protocol_message_begin{}) -> ok;
-validate(#protocol_struct_begin{}) -> ok;
-validate(#protocol_field_begin{}) -> ok;
-validate(#protocol_map_begin{}) -> ok;
-validate(#protocol_list_begin{}) -> ok;
-validate(#protocol_set_begin{}) -> ok;
-validate(message_end) -> ok;
-validate(field_stop) -> ok;
-validate(field_end) -> ok;
-validate(struct_end) -> ok;
-validate(list_end) -> ok;
-validate(set_end) -> ok;
-validate(map_end) -> ok;
-
+validate(#protocol_message_begin{}) ->
+    ok;
+validate(#protocol_struct_begin{}) ->
+    ok;
+validate(#protocol_field_begin{}) ->
+    ok;
+validate(#protocol_map_begin{}) ->
+    ok;
+validate(#protocol_list_begin{}) ->
+    ok;
+validate(#protocol_set_begin{}) ->
+    ok;
+validate(message_end) ->
+    ok;
+validate(field_stop) ->
+    ok;
+validate(field_end) ->
+    ok;
+validate(struct_end) ->
+    ok;
+validate(list_end) ->
+    ok;
+validate(set_end) ->
+    ok;
+validate(map_end) ->
+    ok;
 validate({Type, Data}) ->
-    try validate(required, Type, Data, []) catch
+    try
+        validate(required, Type, Data, [])
+    catch
         throw:{invalid, Path, _Type, Value} ->
             {error, {invalid, lists:reverse(Path), Value}}
     end.
 
-validate(Req, _Type, undefined, _Path)
-  when Req =:= optional orelse Req =:= undefined ->
+validate(Req, _Type, undefined, _Path) when
+    Req =:= optional orelse Req =:= undefined
+->
     ok;
-validate(_Req, {list, Type}, Data, Path)
-  when is_list(Data) ->
-    lists:foreach(fun (E) -> validate(required, Type, E, Path) end, Data);
-validate(_Req, {set, Type}, Data, Path)
-  when is_list(Data) ->
+validate(_Req, {list, Type}, Data, Path) when
+    is_list(Data)
+->
+    lists:foreach(fun(E) -> validate(required, Type, E, Path) end, Data);
+validate(_Req, {set, Type}, Data, Path) when
+    is_list(Data)
+->
     _ = ordsets:is_set(Data) orelse throw({invalid, Path, Type, Data}),
-    lists:foreach(fun (E) -> validate(required, Type, E, Path) end, ordsets:to_list(Data));
-validate(_Req, {map, KType, VType}, Data, Path)
-  when is_map(Data) ->
-    maps:fold(fun (K, V, _) ->
-        validate(required, KType, K, Path),
-        validate(required, VType, V, Path),
-        ok
-    end, ok, Data);
+    lists:foreach(fun(E) -> validate(required, Type, E, Path) end, ordsets:to_list(Data));
+validate(_Req, {map, KType, VType}, Data, Path) when
+    is_map(Data)
+->
+    maps:fold(
+        fun(K, V, _) ->
+            validate(required, KType, K, Path),
+            validate(required, VType, V, Path),
+            ok
+        end,
+        ok,
+        Data
+    );
 validate(Req, {struct, union, {Mod, Name}}, Data = {_, _}, Path) ->
     validate(Req, Mod:struct_info(Name), Data, Path);
-validate(_Req, {struct, union, StructDef} = Type, Data = {Name, Value}, Path)
-  when is_list(StructDef) andalso is_atom(Name) ->
+validate(_Req, {struct, union, StructDef} = Type, Data = {Name, Value}, Path) when
+    is_list(StructDef) andalso is_atom(Name)
+->
     case lists:keyfind(Name, 4, StructDef) of
         {_, _, SubType, Name, _Default} ->
             validate(required, SubType, Value, [Name | Path]);
         false ->
             throw({invalid, Path, Type, Data})
     end;
-validate(Req, {struct, _Flavour, {Mod, Name} = Type}, Data, Path)
-  when is_tuple(Data) ->
+validate(Req, {struct, _Flavour, {Mod, Name} = Type}, Data, Path) when
+    is_tuple(Data)
+->
     try Mod:record_name(Name) of
-      RName when RName =:= element(1, Data) ->
-        validate(Req, Mod:struct_info(Name), Data, Path);
-      _ ->
-        throw({invalid, Path, Type, Data})
-    catch error:badarg ->
-        throw({invalid, Path, Type, Data})
+        RName when RName =:= element(1, Data) ->
+            validate(Req, Mod:struct_info(Name), Data, Path);
+        _ ->
+            throw({invalid, Path, Type, Data})
+    catch
+        error:badarg ->
+            throw({invalid, Path, Type, Data})
     end;
-validate(_Req, {struct, _Flavour, StructDef}, Data, Path)
-  when is_list(StructDef) andalso tuple_size(Data) =:= length(StructDef) + 1 ->
+validate(_Req, {struct, _Flavour, StructDef}, Data, Path) when
+    is_list(StructDef) andalso tuple_size(Data) =:= length(StructDef) + 1
+->
     validate_struct_fields(StructDef, Data, 2, Path);
-validate(_Req, {struct, _Flavour, StructDef}, Data, Path)
-  when is_list(StructDef) andalso tuple_size(Data) =:= length(StructDef) ->
+validate(_Req, {struct, _Flavour, StructDef}, Data, Path) when
+    is_list(StructDef) andalso tuple_size(Data) =:= length(StructDef)
+->
     validate_struct_fields(StructDef, Data, 1, Path);
 validate(_Req, {enum, _Fields}, Value, _Path) when is_atom(Value), Value =/= undefined ->
     ok;
@@ -663,20 +691,25 @@ validate(_Req, string, Value, _Path) when is_binary(Value) ->
     ok;
 validate(_Req, bool, Value, _Path) when is_boolean(Value) ->
     ok;
-validate(_Req, byte, Value, _Path)
-  when is_integer(Value), Value >= -(1 bsl 7), Value < (1 bsl 7) ->
+validate(_Req, byte, Value, _Path) when
+    is_integer(Value), Value >= -(1 bsl 7), Value < (1 bsl 7)
+->
     ok;
-validate(_Req, i8,  Value, _Path)
-  when is_integer(Value), Value >= -(1 bsl 7), Value < (1 bsl 7) ->
+validate(_Req, i8, Value, _Path) when
+    is_integer(Value), Value >= -(1 bsl 7), Value < (1 bsl 7)
+->
     ok;
-validate(_Req, i16, Value, _Path)
-  when is_integer(Value), Value >= -(1 bsl 15), Value < (1 bsl 15) ->
+validate(_Req, i16, Value, _Path) when
+    is_integer(Value), Value >= -(1 bsl 15), Value < (1 bsl 15)
+->
     ok;
-validate(_Req, i32, Value, _Path)
-  when is_integer(Value), Value >= -(1 bsl 31), Value < (1 bsl 31) ->
+validate(_Req, i32, Value, _Path) when
+    is_integer(Value), Value >= -(1 bsl 31), Value < (1 bsl 31)
+->
     ok;
-validate(_Req, i64, Value, _Path)
-  when is_integer(Value), Value >= -(1 bsl 63), Value < (1 bsl 63) ->
+validate(_Req, i64, Value, _Path) when
+    is_integer(Value), Value >= -(1 bsl 63), Value < (1 bsl 63)
+->
     ok;
 validate(_Req, double, Value, _Path) when is_float(Value) ->
     ok;
@@ -740,7 +773,7 @@ impl_write_set_begin(Trans0, Etype, Size) ->
 % impl_write_struct_begin(Trans, _Name) -> Trans.
 % impl_write_struct_end(Trans) -> Trans.
 
-impl_write_bool(Trans, true)  -> impl_write_byte(Trans, 1);
+impl_write_bool(Trans, true) -> impl_write_byte(Trans, 1);
 impl_write_bool(Trans, false) -> impl_write_byte(Trans, 0).
 
 impl_write_byte(Trans, Byte) ->
@@ -770,10 +803,13 @@ impl_read_message_begin(This0, Sz) when Sz band ?VERSION_MASK =:= ?VERSION_1 ->
     %% we're at version 1
     {This1, Name} = impl_read_string(This0),
     <<?read_i32(SeqId), This2/binary>> = This1,
-    {ok, #protocol_message_begin{name  = Name,
-                                 type  = Sz band ?TYPE_MASK,
-                                 seqid = SeqId},
-         This2};
+    {ok,
+        #protocol_message_begin{
+            name = Name,
+            type = Sz band ?TYPE_MASK,
+            seqid = SeqId
+        },
+        This2};
 impl_read_message_begin(_This, Sz) when Sz < 0 ->
     %% there's a version number but it's unexpected
     {error, {bad_binary_protocol_version, Sz}};
@@ -802,13 +838,13 @@ impl_read_string(<<?read_i32(Sz), This/binary>>) ->
 read_data(This, 0) ->
     {This, <<>>};
 read_data(This, Len) ->
-  Give = min(byte_size(This), Len),
-  <<Result:Give/binary, Remaining/binary>> = This,
-  {Remaining, Result}.
+    Give = min(byte_size(This), Len),
+    <<Result:Give/binary, Remaining/binary>> = This,
+    {Remaining, Result}.
 
 %%
 
 impl_transport_new(Buf) when is_list(Buf) ->
-  iolist_to_binary(Buf);
+    iolist_to_binary(Buf);
 impl_transport_new(Buf) when is_binary(Buf) ->
-  Buf.
+    Buf.
